@@ -3,6 +3,7 @@ package com.twitter.elephantbird.mapreduce.output;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.slf4j.Logger;
@@ -18,6 +19,7 @@ import com.twitter.elephantbird.util.LzoUtils;
 public abstract class LzoOutputFormat<K, V> extends FileOutputFormat<K, V> {
 
   public static final Logger LOG = LoggerFactory.getLogger(LzoOutputFormat.class);
+  public static final String CONF_FINAL_OUT_PATH = "HiveRecordWriter.finalOutPath";
 
   /**
    * Helper method to create lzo output file needed to create RecordWriter
@@ -25,8 +27,16 @@ public abstract class LzoOutputFormat<K, V> extends FileOutputFormat<K, V> {
   protected DataOutputStream getOutputStream(TaskAttemptContext job)
                   throws IOException, InterruptedException {
 
+    Path workFile = null;
+    try {
+      workFile = getDefaultWorkFile(job, LzopCodec.DEFAULT_LZO_EXTENSION);
+    } catch (Exception e) {
+      // see com.twitter.elephantbird.mapred.output.HiveLzoProtobufBlockOutputFormat
+      workFile = new Path(job.getConfiguration().get(CONF_FINAL_OUT_PATH));
+    }
+    
     return LzoUtils.getIndexedLzoOutputStream(
                       job.getConfiguration(),
-                      getDefaultWorkFile(job, LzopCodec.DEFAULT_LZO_EXTENSION));
+                      workFile);
   }
 }
