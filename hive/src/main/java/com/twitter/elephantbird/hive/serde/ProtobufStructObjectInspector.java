@@ -3,6 +3,7 @@ package com.twitter.elephantbird.hive.serde;
 import java.util.List;
 
 import com.google.common.collect.Lists;
+import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.EnumValueDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
@@ -138,7 +139,9 @@ public final class ProtobufStructObjectInspector extends SettableStructObjectIns
   public Object setStructFieldData(Object data, StructField field, Object fieldValue) {
     return ((Message) data)
         .toBuilder()
-        .setField(descriptor.findFieldByName(field.getFieldName()), fieldValue)
+        // MiB
+        //.setField(descriptor.findFieldByName(field.getFieldName()), fieldValue)
+        .setField(((DescriptorProto)data).getDescriptor().findFieldByName(field.getFieldName()), fieldValue)        
         .build();
   }
 
@@ -164,7 +167,19 @@ public final class ProtobufStructObjectInspector extends SettableStructObjectIns
 
   @Override
   public StructField getStructFieldRef(String fieldName) {
-    return new ProtobufStructField(descriptor.findFieldByName(fieldName));
+    FieldDescriptor fieldDesc = descriptor.findFieldByName(fieldName);
+    if (fieldDesc == null) {
+      // CRO 21Jan2014: Hive casing causes confusion; search for descriptor one name at a time
+      //  see StandardStructObjectInspector.MyField constructor
+      for(FieldDescriptor fd : descriptor.getFields()) {
+        if(fd.getName().toLowerCase().equals(fieldName)) {
+          //System.err.println("Found a field descriptor: " + fieldName);
+          fieldDesc = fd;
+          break;
+        }
+      }
+    }
+    return new ProtobufStructField(fieldDesc);
   }
 
   @Override
